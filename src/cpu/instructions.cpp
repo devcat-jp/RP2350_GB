@@ -94,7 +94,7 @@ void Cpu::jr_c(Peripherals &bus, Cond c){
 }
 
 
-
+/*
 // push ：　スタックポインタ（16bit）をデクリメントした後にスタックポインタが指すアドレスに値を格納する
 // 4サイクル固定
 bool push16(Peripherals &bus, uint16_t val){
@@ -125,7 +125,7 @@ bool push16(Peripherals &bus, uint16_t val){
     }
     return false;
 }
-
+*/
 
 
 /*
