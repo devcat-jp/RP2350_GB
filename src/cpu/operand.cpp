@@ -77,25 +77,29 @@ bool Cpu::read8(Peripherals &bus, Imm8 src, uint8_t &val){
 // サイクル2消費
 bool Cpu::read16(Peripherals &bus, Imm16 src, uint16_t &val){
     static uint8_t _step = 0;
+    uint8_t _tmp = 0;
 
+    RE_ACTION:
     switch(_step){
         case 0:
-            _step = 1;
+            if(this->read8(bus, this->imm8, _tmp)){
+                val |= _tmp;
+                _step = 1;
+                goto RE_ACTION;
+            }
             return false;
         case 1:
-            _step = 2;
+            if(this->read8(bus, this->imm8, _tmp)){
+                val |= _tmp << 8;
+                _step = 2;
+                goto RE_ACTION;
+            }
             return false;
         case 2:
-            // 2回read8から値を取り出す
-            val = 0;
-            uint8_t _tmp = 0;
-            this->read8(bus, this->imm8, _tmp);
-            this->read8(bus, this->imm8, _tmp); val |= _tmp;
-            this->read8(bus, this->imm8, _tmp);
-            this->read8(bus, this->imm8, _tmp); val |= _tmp << 8;
             _step = 0;
-            return true;            
+            return true;
     };
+
     return false;
 }
 
