@@ -54,7 +54,8 @@ void Cpu::decode(Peripherals &bus){
 
 void Cpu::cb_decode(Peripherals &bus){
     switch(this->ctx.opecode){
-        case 0x6C: this->chkbit(bus, 5, Reg8::H); break;                // 2サイクル（cb確認を含む）
+        case 0x10: this->rl(bus, Reg8::B); break;                       // 2サイクル
+        case 0x6C: this->chkbit(bus, 5, Reg8::H); break;                // 2サイクル
     }
 }
 

@@ -47,6 +47,8 @@ class Cpu{
         template<typename T, typename U> void ld(Peripherals &bus, T dst, U src);
         template<typename T, typename U> void ld16(Peripherals &bus, T dst, U src);
         template<typename T> void chkbit(Peripherals &bus, uint8_t bitsize, T src);
+        template<typename T> bool rl(Peripherals &bus, T src);
+        
 
     public:
         Cpu();

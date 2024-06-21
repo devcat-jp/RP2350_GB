@@ -94,6 +94,45 @@ void Cpu::jr_c(Peripherals &bus, Cond c){
 }
 
 
+
+// RL s : sの値とCフラグを合わせた9bitの値を左に回転 = 1bit左シフト、Cフラグを最下位bitにセットする
+template<typename T> bool Cpu::rl(Peripherals &bus, T src){
+    static uint8_t _step = 0;
+    static uint8_t _val8 = 0;
+    static uint8_t _result = 0;
+
+    RE_ACTION:
+    switch(_step){
+        case 0:
+            // src の値を取得する
+            if(this->read8(bus, src, _val8)){
+                // Cフラグを左シフトし、srcとのorをとる
+                _result = _val8 << 1 | (uint8_t)this->regs.cf();
+                // フラグ操作
+                this->regs.set_zf(_result == 0);        // 演算結果が0の場合は1
+                this->regs.set_nf(0);                   // 無条件に0
+                this->regs.set_hf(0);                   // 無条件に0
+                this->regs.set_cf((_val8 & 0x80) > 0);  // 演算前のsrcで7bit目が1の場合は1
+                _step = 1;
+                goto RE_ACTION;
+            }
+            return false;
+        case 1:
+            // 値の書き込み
+            if(this->write8(bus, src, _result)){
+                _step = 0;
+                this->fetch(bus);
+                return true;
+            }
+            return false;
+    };
+
+    return false;
+}
+
+
+
+
 // push ：　16bitの値を、スタックポインタをデクリメントした後にスタックポインタが指すアドレスに値を格納する
 // 3サイクル
 bool Cpu::push16(Peripherals &bus, uint16_t val){
@@ -186,37 +225,6 @@ bool Cpu::call(Peripherals &bus){
 }
 
 
-/*
-    // call ：　プログラムカウンタの値をスタックにpushし、その後元のプログラムカウンタに戻す、6サイクル
-    pub fn call (&mut self, bus: &mut Peripherals) {
-        //println!("call");
-        static STEP: AtomicU8 = AtomicU8::new(0);
-        static VAL16: AtomicU16 = AtomicU16::new(0);
-        match STEP.load(Relaxed) {
-            0 => {
-                // プログラムカウンタの値取り出し
-                if let Some(v) = self.read16(bus, Imm16) {
-                    VAL16.store(v, Relaxed);
-                    STEP.store(1, Relaxed);
-                    // 応答が得られたので再度処理を行う
-                    self.call(bus);
-                }
-            },
-            1 => {
-                // プログラムカウンタの値をpush（3サイクル）
-                if self.push16(bus, self.regs.pc).is_some() {
-                    self.regs.pc = VAL16.load(Relaxed);
-                    STEP.store(2, Relaxed);
-                }
-            },
-            2 => {
-                STEP.store(0, Relaxed);
-                self.fetch(bus);
-            }
-            _ => panic!("Not implemented: call"),
-        }
-    }
-*/
 
 
 
@@ -228,3 +236,4 @@ template void Cpu::ld<Indirect, Reg8>(Peripherals &bus, Indirect dst, Reg8 src);
 template void Cpu::ld<Direct8, Reg8>(Peripherals &bus, Direct8 dst, Reg8 src);
 template void Cpu::ld16<Reg16, Imm16>(Peripherals &bus, Reg16 dst, Imm16 src);
 template void Cpu::chkbit<Reg8>(Peripherals &bus, uint8_t bitsize, Reg8 src);
+template bool Cpu::rl<Reg8>(Peripherals &bus, Reg8 src);
