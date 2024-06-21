@@ -191,6 +191,50 @@ bool Cpu::push(Peripherals &bus, Reg16 src){
 }
 
 
+
+// pop : 16bitの値をスタックからpop
+// スタックポインタが指すアドレスに格納されている値をレジスタに格納した後に，スタックポインタをインクリメント
+bool Cpu::pop16(Peripherals &bus, uint16_t &val){
+    static uint8_t _step = 0;
+    static uint8_t _val8 = 0;
+    static uint16_t _result = 0;
+
+    switch(_step){
+        case 0:
+            // 下位8bitの値取得し、SPをインクリメント
+            _result = bus.read(this->regs.sp);
+            this->regs.sp += 1;
+            _step = 1;
+            break;
+        case 1:
+            // 上位8bitの値取得し、SPをインクリメント
+            _val8 = bus.read(this->regs.sp);
+            _result |= _val8 << 8;
+            this->regs.sp += 1;
+            _step = 2;
+            break;
+        case 2:
+            _step = 0;
+            return true;
+    };
+
+    return false;
+}
+bool Cpu::pop(Peripherals &bus, Reg16 dst){
+    uint16_t _val = 0;
+    
+    if(this->pop16(bus, _val)){
+        // 取り出した値をレジスタに書き込み、サイクル消費しない
+        this->write16(bus, dst, _val);
+        this->fetch(bus);
+        return true;
+    }
+
+    return false;
+}
+
+
+
 // call ：　プログラムカウンタの値をスタックにpushし、その後元のプログラムカウンタに戻す
 // 6サイクル固定
 bool Cpu::call(Peripherals &bus){

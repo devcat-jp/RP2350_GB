@@ -41,8 +41,10 @@ class Cpu{
         //
         void nop(Peripherals &bus);
         void jr_c(Peripherals &bus, Cond c);
-        bool push(Peripherals &bus, Reg16 src);
         bool push16(Peripherals &bus, uint16_t val);
+        bool push(Peripherals &bus, Reg16 src);
+        bool pop16(Peripherals &bus, uint16_t &val);
+        bool pop(Peripherals &bus, Reg16 dst);
         bool call(Peripherals &bus);
         template<typename T, typename U> void ld(Peripherals &bus, T dst, U src);
         template<typename T, typename U> void ld16(Peripherals &bus, T dst, U src);
