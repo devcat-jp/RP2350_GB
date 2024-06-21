@@ -33,8 +33,10 @@ void Cpu::decode(Peripherals &bus){
     switch(this->ctx.opecode){
 
         case 0x00: this->nop(bus); break;
-        case 0x1A: this->ld(bus, Reg8::A, Indirect::DE); break;
+        
+        case 0x1A: this->ld(bus, Reg8::A, Indirect::DE); break;         // 2サイクル
         case 0x3E: this->ld(bus, Reg8::A, this->imm8); break;           // 2サイクル
+        case 0x0E: this->ld(bus, Reg8::C, this->imm8); break;           // 2サイクル
         case 0x47: this->ld(bus, Reg8::B, Reg8::A); break;              // 1サイクル
         case 0x22: this->ld(bus, Indirect::HLI, Reg8::A); break;        // 2サイクル
         
