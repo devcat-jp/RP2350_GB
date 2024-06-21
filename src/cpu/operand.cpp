@@ -246,5 +246,6 @@ bool Cpu::write8(Peripherals &bus, Direct8 dst, uint8_t val){
             _step = 0;
             return true;            
     };
+    
     return false;
 }

@@ -44,6 +44,7 @@ void Cpu::decode(Peripherals &bus){
         case 0x31: this->ld16(bus, Reg16::SP, this->imm16); break;      // 3サイクル
 
         case 0x28: this->jr_c(bus, Cond::Z); break;                     // 2-3サイクル
+        case 0xCD: this->call(bus); break;                              // 
         case 0xCB: this->cb_prefixed(bus);
 
     }

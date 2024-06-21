@@ -41,6 +41,9 @@ class Cpu{
         //
         void nop(Peripherals &bus);
         void jr_c(Peripherals &bus, Cond c);
+        bool push(Peripherals &bus, Reg16 src);
+        bool push16(Peripherals &bus, uint16_t val);
+        bool call(Peripherals &bus);
         template<typename T, typename U> void ld(Peripherals &bus, T dst, U src);
         template<typename T, typename U> void ld16(Peripherals &bus, T dst, U src);
         template<typename T> void chkbit(Peripherals &bus, uint8_t bitsize, T src);

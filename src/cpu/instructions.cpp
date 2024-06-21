@@ -94,97 +94,126 @@ void Cpu::jr_c(Peripherals &bus, Cond c){
 }
 
 
-/*
-// push ：　スタックポインタ（16bit）をデクリメントした後にスタックポインタが指すアドレスに値を格納する
-// 4サイクル固定
-bool push16(Peripherals &bus, uint16_t val){
+// push ：　16bitの値を、スタックポインタをデクリメントした後にスタックポインタが指すアドレスに値を格納する
+// 3サイクル
+bool Cpu::push16(Peripherals &bus, uint16_t val){
     static uint8_t _step = 0;
 
     switch(_step){
         case 0:
+            // メモリアクセス回数 + 1
             _step = 1;
             return false;
         case 1:
-            _step = 2;
-            return false;
-        case 2:
-            _step = 3;
-            return false;
-        case 3:
-            _step = 4;
-            return false;
-        case 4:
             // SPをデクリメントし、SPが指すアドレスに値を書き込む（H）
             this->regs.sp -= 1;
             bus.write(this->regs.sp, (uint8_t)(val >> 8));
+            _step = 2;
+            return false;
+        case 2:
             // 下位ビット
             this->regs.sp -= 1;
             bus.write(this->regs.sp, (uint8_t)(val & 0xFF));
+            _step = 3;
+            return false;
+        case 3:
             _step = 0;
+            return true;
+    }
+
+    return false;
+}
+
+// 4サイクル固定
+bool Cpu::push(Peripherals &bus, Reg16 src){
+    static uint8_t _step = 0;
+    static uint16_t _val16 = 0;
+
+    RE_ACTION:
+    switch(_step){
+        case 0:
+            // 16bitの値取得
+            this->read16(bus, src, _val16);
+            _step = 1;
+            goto RE_ACTION;
+        case 1:
+            // プログラムカウンタの値をpush（3サイクル）
+            if(this->push16(bus, _val16)){
+                _step = 2;
+                goto RE_ACTION;
+            }
+            return false;
+        case 2:
+            _step = 0;
+            this->fetch(bus);
             return true;
     }
     return false;
 }
-*/
+
+
+// call ：　プログラムカウンタの値をスタックにpushし、その後元のプログラムカウンタに戻す
+// 6サイクル固定
+bool Cpu::call(Peripherals &bus){
+    static uint8_t _step = 0;
+    static uint16_t _val16 = 0;
+
+    RE_ACTION:
+    switch(_step){
+        case 0:
+            // プログラムカウンタの値取り出し
+            if(this->read16(bus, this->imm16, _val16)){
+                _step = 1;
+                goto RE_ACTION;
+            }
+            return false;
+        case 1:
+            // プログラムカウンタの値をpush（3サイクル）
+            if(this->push16(bus, this->regs.pc)){
+                // 記録した値を戻す
+                this->regs.pc = _val16;
+                _step = 2;
+                goto RE_ACTION;
+            }
+            return false;
+        case 2:
+            _step = 0;
+            this->fetch(bus);
+            return true;
+    };
+
+    return false;
+}
 
 
 /*
-    // push ：　16bit値をデクリメントした後にスタックポインタが指すアドレスに値を格納する
-    pub fn push16 (&mut self, bus: &mut Peripherals, val: u16) -> Option<()> {
-        //println!("[push16]");
-        static STEP: AtomicU8 = AtomicU8::new(0);
-        static VAL8: AtomicU8 = AtomicU8::new(0);
-        static VAL16: AtomicU16 = AtomicU16::new(0);
-        match STEP.load(Relaxed) {
-            0 => {
-                // pushはメモリアクセス数+1のサイクル数
-                STEP.store(1, Relaxed);
-                None
-            },
-            1 => {
-                // 値を取得
-                let [lo, hi] = u16::to_le_bytes(val);
-                // デクリメントしたアドレスに書き込み
-                self.regs.sp = self.regs.sp.wrapping_sub(1);
-                bus.write(&mut self.interrupts, self.regs.sp, hi);
-                //
-                VAL8.store(lo, Relaxed);
-                STEP.store(2, Relaxed);
-                None
-            },
-            2 => {
-                // デクリメントしたアドレスに書き込み
-                self.regs.sp = self.regs.sp.wrapping_sub(1);
-                bus.write(&mut self.interrupts, self.regs.sp, VAL8.load(Relaxed));
-                //
-                STEP.store(0, Relaxed);
-                Some(())
-            },
-            _ => panic!("Not implemented: push16"),
-        }
-    }
-    pub fn push (&mut self, bus: &mut Peripherals, src: Reg16) {
-        //println!("push");
+    // call ：　プログラムカウンタの値をスタックにpushし、その後元のプログラムカウンタに戻す、6サイクル
+    pub fn call (&mut self, bus: &mut Peripherals) {
+        //println!("call");
         static STEP: AtomicU8 = AtomicU8::new(0);
         static VAL16: AtomicU16 = AtomicU16::new(0);
         match STEP.load(Relaxed) {
             0 => {
-                // pushはレジスタ操作のみなのでサイクル消費しない
-                VAL16.store(self.read16(bus, src).unwrap(), Relaxed);
-                STEP.store(1, Relaxed);
-                // 応答が得られたので再度処理を行う
-                self.push(bus, src);
+                // プログラムカウンタの値取り出し
+                if let Some(v) = self.read16(bus, Imm16) {
+                    VAL16.store(v, Relaxed);
+                    STEP.store(1, Relaxed);
+                    // 応答が得られたので再度処理を行う
+                    self.call(bus);
+                }
             },
             1 => {
-                if self.push16(bus, VAL16.load(Relaxed)).is_some() {
+                // プログラムカウンタの値をpush（3サイクル）
+                if self.push16(bus, self.regs.pc).is_some() {
+                    self.regs.pc = VAL16.load(Relaxed);
                     STEP.store(2, Relaxed);
                 }
             },
             2 => {
                 STEP.store(0, Relaxed);
                 self.fetch(bus);
-            },
-            _ => panic!("Not implemented: push"),
+            }
+            _ => panic!("Not implemented: call"),
         }
     }
 */
