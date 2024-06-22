@@ -40,6 +40,7 @@ class Cpu{
         bool cond(Peripherals &bus, Cond cond);
         //
         void nop(Peripherals &bus);
+        void jr(Peripherals &bus);
         void jr_c(Peripherals &bus, Cond c);
         bool push16(Peripherals &bus, uint16_t val);
         bool push(Peripherals &bus, Reg16 src);
@@ -50,6 +51,7 @@ class Cpu{
         template<typename T, typename U> void ld(Peripherals &bus, T dst, U src);
         template<typename T, typename U> void ld16(Peripherals &bus, T dst, U src);
         template<typename T> void chkbit(Peripherals &bus, uint8_t bitsize, T src);
+        template<typename T> void cp(Peripherals &bus, T src);
         template<typename T> bool dec(Peripherals &bus, T src);
         template<typename T> bool inc(Peripherals &bus, T src);
         template<typename T> bool inc16(Peripherals &bus, T src);

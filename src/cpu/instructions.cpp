@@ -45,6 +45,22 @@ template<typename T, typename U> void Cpu::ld16(Peripherals &bus, T dst, U src){
     };
 }
 
+// CP s : Aレジスタからsの値を引き、レジスタ設定を行う
+template<typename T> void Cpu::cp(Peripherals &bus, T src){
+    static uint8_t _val8 = 0;
+
+    if(this->read8(bus, src, _val8)){
+        uint8_t _result = this->regs.a - _val8; 
+        // フラグ設定
+        this->regs.set_zf(_result == 0);                             // 演算結果が0の場合は1
+        this->regs.set_nf(true);                                     // 無条件にtrue
+        this->regs.set_hf((this->regs.a & 0xf) < (_val8 & 0xf));      // 4bit目からの繰り下がりが発生した場合に1
+        this->regs.set_cf(this->regs.a < _val8);                      // 8bit目からの繰り下がりが発生した場合に1
+
+        this->fetch(bus);
+    }
+}
+
 
 // bit num s : s の num bit目が0か1かを確認する
 template<typename T> void Cpu::chkbit(Peripherals &bus, uint8_t bitsize, T src){
@@ -327,6 +343,26 @@ bool Cpu::call(Peripherals &bus){
 }
 
 
+// JR : プログラムカウンタに値を加算する
+void Cpu::jr(Peripherals &bus){
+    static uint8_t _step = 0;
+    static uint8_t _val8 = 0;
+
+    switch(_step){
+        case 0:
+            if(this->read8(bus, this->imm8, _val8)){
+                this->regs.pc += (int8_t)_val8;
+                _step = 1;
+            }
+            break;
+        case 1:
+            _step = 0;
+            this->fetch(bus);
+            break;
+    };
+}
+
+
 // JR c : フラグがcを満たしていればJR命令（プログラムカウンタに加算）を行う
 bool Cpu::cond(Peripherals &bus, Cond c){
     switch(c){
@@ -374,7 +410,6 @@ void Cpu::ret(Peripherals &bus){
     switch(_step){
         case 0:
             if(this->pop16(bus, _val16)){
-                this->dVal = _val16;
                 this->regs.pc = _val16;
                 _step = 1;
             }
@@ -396,6 +431,7 @@ template void Cpu::ld<Indirect, Reg8>(Peripherals &bus, Indirect dst, Reg8 src);
 template void Cpu::ld<Direct8, Reg8>(Peripherals &bus, Direct8 dst, Reg8 src);
 template void Cpu::ld16<Reg16, Imm16>(Peripherals &bus, Reg16 dst, Imm16 src);
 template void Cpu::chkbit<Reg8>(Peripherals &bus, uint8_t bitsize, Reg8 src);
+template void Cpu::cp(Peripherals &bus, Imm8 src);
 template bool Cpu::rl<Reg8>(Peripherals &bus, Reg8 src);
 template bool Cpu::dec(Peripherals &bus, Reg8 src);
 template bool Cpu::inc16(Peripherals &bus, Reg16 src);
