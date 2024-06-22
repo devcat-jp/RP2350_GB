@@ -38,6 +38,7 @@ void Cpu::decode(Peripherals &bus){
         case 0x3E: this->ld(bus, Reg8::A, this->imm8); break;           // 2サイクル
         case 0x0E: this->ld(bus, Reg8::C, this->imm8); break;           // 2サイクル
         case 0x47: this->ld(bus, Reg8::B, Reg8::A); break;              // 1サイクル
+        case 0x79: this->ld(bus, Reg8::A, Reg8::C); break;              // 1サイクル
         case 0x22: this->ld(bus, Indirect::HLI, Reg8::A); break;        // 2サイクル
         
         case 0xE0: this->ld(bus, Direct8::DFF, Reg8::A); break;         // 2サイクル
