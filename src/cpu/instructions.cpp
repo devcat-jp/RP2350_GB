@@ -64,23 +64,24 @@ template<typename T> void Cpu::chkbit(Peripherals &bus, uint8_t bitsize, T src){
 template<typename T> bool Cpu::dec(Peripherals &bus, T src){
     static uint8_t _step = 0;
     static uint8_t _val8 = 0;
+    static uint8_t _result = 0;
 
     RE_ACTION:
     switch(_step){
         case 0:
             if(this->read8(bus, src, _val8)){
                 // デクリメント
-                _val8 -= 1;
+                _result = _val8 - 1;
                 // フラグ操作
-                this->regs.set_zf(_val8 == 0);      // Zフラグ、演算結果が0の場合は1
-                this->regs.set_nf(false);           // Nフラグ、無条件に0
-                this->regs.set_hf(true);            // Hフラグ、4bit目からの繰り下がりが発生すると1
+                this->regs.set_zf(_result == 0);        // Zフラグ、演算結果が0の場合は1
+                this->regs.set_nf(false);               // Nフラグ、無条件に0
+                this->regs.set_hf(_val8 & 0xF == 0);    // Hフラグ、4bit目からの繰り下がりが発生すると1
                 _step = 1;
                 goto RE_ACTION;
             }
             return false;
         case 1:
-            if(this->write8(bus, src, _val8)){
+            if(this->write8(bus, src, _result)){
                 _step = 0;
                 this->fetch(bus);
                 return true;
@@ -89,6 +90,67 @@ template<typename T> bool Cpu::dec(Peripherals &bus, T src){
     };
     return false;
 }
+
+
+// INC s : sをインクリメントする
+// 8bit操作の時はフラグレジスタ操作も必要
+template<typename T> bool Cpu::inc(Peripherals &bus, T src){
+    static uint8_t _step = 0;
+    static uint8_t _val8 = 0;
+    static uint8_t _result = 0;
+
+    RE_ACTION:
+    switch(_step){
+        case 0:
+            if(this->read8(bus, src, _val8)){
+                // インクリメント
+                _result = _val8 + 1;
+                // フラグ操作
+                this->regs.set_zf(_result == 0);            // Zフラグ、演算結果が0の場合は1
+                this->regs.set_nf(false);                   // Nフラグ、無条件に0
+                this->regs.set_hf(_val8 & 0xF == 0xF);      // Hフラグ、3bit目で繰り上がりが発生すると1
+                _step = 1;
+                goto RE_ACTION;
+            }
+            return false;
+        case 1:
+            if(this->write8(bus, src, _result)){
+                _step = 0;
+                this->fetch(bus);
+                return true;
+            }
+            return false;
+    };
+
+    return false;
+}
+
+template<typename T> bool Cpu::inc16(Peripherals &bus, T src){
+    static uint8_t _step = 0;
+    static uint16_t _val16 = 0;
+
+    RE_ACTION:
+    switch(_step){
+        case 0:
+            if(this->read16(bus, src, _val16)){
+                // インクリメント
+                _val16 += 1;
+                _step = 1;
+                goto RE_ACTION;
+            }
+            return false;
+        case 1:
+            if(this->write16(bus, src, _val16)){
+                _step = 0;
+                this->fetch(bus);
+                return true;
+            }
+            return false;
+    };
+
+    return false;
+}
+
 
 
 // RL s : sの値とCフラグを合わせた9bitの値を左に回転 = 1bit左シフト、Cフラグを最下位bitにセットする
@@ -206,7 +268,7 @@ bool Cpu::pop16(Peripherals &bus, uint16_t &val){
             _hi = bus.read(this->regs.sp);
             this->regs.sp += 1;
             // 結果代入
-            val = _hi << 8 | _lo; 
+            val = (uint16_t)(_hi << 8) | (uint16_t)_lo; 
             _step = 2;
             break;
         case 2:
@@ -220,7 +282,6 @@ bool Cpu::pop(Peripherals &bus, Reg16 dst){
     static uint16_t _val = 0;
     
     if(this->pop16(bus, _val)){
-        this->dVal = _val;
         // 取り出した値をレジスタに書き込み、サイクル消費しない
         this->write16(bus, dst, _val);
         this->fetch(bus);
@@ -316,3 +377,4 @@ template void Cpu::ld16<Reg16, Imm16>(Peripherals &bus, Reg16 dst, Imm16 src);
 template void Cpu::chkbit<Reg8>(Peripherals &bus, uint8_t bitsize, Reg8 src);
 template bool Cpu::rl<Reg8>(Peripherals &bus, Reg8 src);
 template bool Cpu::dec(Peripherals &bus, Reg8 src);
+template bool Cpu::inc16(Peripherals &bus, Reg16 src);

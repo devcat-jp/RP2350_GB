@@ -50,6 +50,8 @@ class Cpu{
         template<typename T, typename U> void ld16(Peripherals &bus, T dst, U src);
         template<typename T> void chkbit(Peripherals &bus, uint8_t bitsize, T src);
         template<typename T> bool dec(Peripherals &bus, T src);
+        template<typename T> bool inc(Peripherals &bus, T src);
+        template<typename T> bool inc16(Peripherals &bus, T src);
         template<typename T> bool rl(Peripherals &bus, T src);
         
 
