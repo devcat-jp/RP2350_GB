@@ -10,9 +10,6 @@ uint8_t Peripherals::read(uint16_t addr){
         } else {
             return 0xFF;
         }
-    // wram
-    } else if (0xC000 <= addr && addr <= 0xFDFF){
-        return 0xFE;
     // hram
     } else if (0xFF80 <= addr && addr <= 0xFFFE){
         return this->hram.read(addr);
@@ -29,7 +26,6 @@ void Peripherals::write(uint16_t addr, uint8_t val){
         this->bootrom.write(addr, val);
     } else if (0xFF80 <= addr && addr <= 0xFFFE){
         this->hram.write(addr, val);
-    } else if (0xFF11 <= addr && addr <= 0xFF26){
     }
 
 }

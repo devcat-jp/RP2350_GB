@@ -45,12 +45,13 @@ void Cpu::decode(Peripherals &bus){
         case 0x21: this->ld16(bus, Reg16::HL, this->imm16); break;      // 3サイクル
         case 0x31: this->ld16(bus, Reg16::SP, this->imm16); break;      // 3サイクル
 
-        case 0x3D: this->dec(bus, Reg8::A); break;
+        case 0x3D: this->dec(bus, Reg8::A); break;                      // 1サイクル
 
         case 0xF5: this->push(bus, Reg16::AF); break;                   // 4サイクル
         case 0xF1: this->pop(bus, Reg16::AF); break;                    // 3サイクル
 
         case 0x28: this->jr_c(bus, Cond::Z); break;                     // 2-3サイクル
+        case 0x20: this->jr_c(bus, Cond::NZ); break;                    // 2-3サイクル
         case 0xCD: this->call(bus); break;                              // 
         case 0xCB: this->cb_prefixed(bus);
 

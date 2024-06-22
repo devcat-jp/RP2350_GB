@@ -8,8 +8,8 @@
 class Peripherals {
     private:
         BootRom bootrom;
-        HRam hram;
     public:
+        HRam hram;
         uint8_t read(uint16_t addr);
         void write(uint16_t addr, uint8_t val);
 };
