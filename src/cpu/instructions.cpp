@@ -59,40 +59,36 @@ template<typename T> void Cpu::chkbit(Peripherals &bus, uint8_t bitsize, T src){
 
 }
 
-// JR c : フラグがcを満たしていればJR命令（プログラムカウンタに加算）を行う
-bool Cpu::cond(Peripherals &bus, Cond c){
-    switch(c){
-        case Cond::NZ: return !this->regs.zf();     // not Zフラグ
-        case Cond::Z: return this->regs.zf();       // Zフラグ
-        case Cond::NC: return !this->regs.cf();     // not Cフラグ
-        case Cond::C: return this->regs.cf();       // Cフラグ
-    }
-    return true;
-}
-void Cpu::jr_c(Peripherals &bus, Cond c){
+// dec : sをデクリメント
+// 8bitの場合
+template<typename T> bool Cpu::dec(Peripherals &bus, T src){
     static uint8_t _step = 0;
     static uint8_t _val8 = 0;
 
+    RE_ACTION:
     switch(_step){
         case 0:
-            if(this->read8(bus, this->imm8, _val8)) {
-                if(this->cond(bus, c)){
-                    this->regs.pc += (int8_t)_val8;
-                    _step = 1;                      // ジャンプの場合はサイクル数+1
-                }
-                else _step = 2;
+            if(this->read8(bus, src, _val8)){
+                // デクリメント
+                _val8 -= 1;
+                // フラグ操作
+                this->regs.set_zf(_val8 == 0);      // Zフラグ、演算結果が0の場合は1
+                this->regs.set_nf(false);           // Nフラグ、無条件に0
+                this->regs.set_hf(true);            // Hフラグ、4bit目からの繰り下がりが発生すると1
+                _step = 1;
+                goto RE_ACTION;
             }
-            break;
+            return false;
         case 1:
-            _step = 2;
-            break;
-        case 2:
-            _step = 0;
-            this->fetch(bus);
-            break;
-    }
+            if(this->write8(bus, src, _val8)){
+                _step = 0;
+                this->fetch(bus);
+                return true;
+            }
+            return false;
+    };
+    return false;
 }
-
 
 
 // RL s : sの値とCフラグを合わせた9bitの値を左に回転 = 1bit左シフト、Cフラグを最下位bitにセットする
@@ -269,6 +265,41 @@ bool Cpu::call(Peripherals &bus){
 }
 
 
+// JR c : フラグがcを満たしていればJR命令（プログラムカウンタに加算）を行う
+bool Cpu::cond(Peripherals &bus, Cond c){
+    switch(c){
+        case Cond::NZ: return !this->regs.zf();     // not Zフラグ
+        case Cond::Z: return this->regs.zf();       // Zフラグ
+        case Cond::NC: return !this->regs.cf();     // not Cフラグ
+        case Cond::C: return this->regs.cf();       // Cフラグ
+    }
+    return true;
+}
+void Cpu::jr_c(Peripherals &bus, Cond c){
+    static uint8_t _step = 0;
+    static uint8_t _val8 = 0;
+
+    switch(_step){
+        case 0:
+            if(this->read8(bus, this->imm8, _val8)) {
+                if(this->cond(bus, c)){
+                    this->regs.pc += (int8_t)_val8;
+                    _step = 1;                      // ジャンプの場合はサイクル数+1
+                }
+                else _step = 2;
+            }
+            break;
+        case 1:
+            _step = 2;
+            break;
+        case 2:
+            _step = 0;
+            this->fetch(bus);
+            break;
+    }
+}
+
+
 
 
 
@@ -281,3 +312,4 @@ template void Cpu::ld<Direct8, Reg8>(Peripherals &bus, Direct8 dst, Reg8 src);
 template void Cpu::ld16<Reg16, Imm16>(Peripherals &bus, Reg16 dst, Imm16 src);
 template void Cpu::chkbit<Reg8>(Peripherals &bus, uint8_t bitsize, Reg8 src);
 template bool Cpu::rl<Reg8>(Peripherals &bus, Reg8 src);
+template bool Cpu::dec(Peripherals &bus, Reg8 src);
