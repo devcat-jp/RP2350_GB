@@ -124,8 +124,8 @@ void loop() {
 
   cpu.emulate_cycle(mmio);
 
-  //if(cpu.ctx.opecode == 0x20) my_debug = true;
-  //if(my_debug) delay(2000);
+  if(cpu.ctx.opecode == 0xc9) my_debug = true;
+  if(my_debug) delay(2000);
 
 
   if(BOOTSEL){

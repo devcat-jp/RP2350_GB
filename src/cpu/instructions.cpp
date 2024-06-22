@@ -365,6 +365,27 @@ void Cpu::jr_c(Peripherals &bus, Cond c){
 
 
 
+// RET : return
+// 16bitの値をプログラムカウンタに代入する、4サイクル
+void Cpu::ret(Peripherals &bus){
+    static uint8_t _step = 0;
+    static uint16_t _val16 = 0;
+
+    switch(_step){
+        case 0:
+            if(this->pop16(bus, _val16)){
+                this->dVal = _val16;
+                this->regs.pc = _val16;
+                _step = 1;
+            }
+            break;
+        case 1:
+            _step = 0;
+            this->fetch(bus);
+            break;
+    };
+}
+
 
 
 // テンプレート関数の実体化
