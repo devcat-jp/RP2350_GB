@@ -18,7 +18,9 @@ template<typename T, typename U> void Cpu::ld(Peripherals &bus, T dst, U src){
 
     switch(_step){
         case 0:
-            if(this->read8(bus, src, _val8)) _step = 1;
+            if(this->read8(bus, src, _val8)){
+                _step = 1;
+            }
             break;
         case 1:
             if(this->write8(bus, dst, _val8)){
@@ -34,7 +36,9 @@ template<typename T, typename U> void Cpu::ld16(Peripherals &bus, T dst, U src){
     
     switch(_step){
         case 0:
-            if(this->read16(bus, src, _val16)) _step = 1;
+            if(this->read16(bus, src, _val16)) {
+                _step = 1;
+            }
             break;
         case 1:
             if(this->write16(bus, dst, _val16)){
@@ -64,10 +68,10 @@ template<typename T> void Cpu::cp(Peripherals &bus, T src){
 
 // bit num s : s の num bit目が0か1かを確認する
 template<typename T> void Cpu::chkbit(Peripherals &bus, uint8_t bitsize, T src){
-    uint8_t val = 0;
-    if(this->read8(bus, src, val)){
-        val &= 1 << bitsize;
-        this->regs.set_zf(val == 0);        // Zフラグ、指定bitが0の場合は1にする
+    static uint8_t _val8 = 0;
+    if(this->read8(bus, src, _val8)){
+        _val8 &= 1 << bitsize;
+        this->regs.set_zf(_val8 == 0);      // Zフラグ、指定bitが0の場合は1にする
         this->regs.set_nf(false);           // Nフラグ、無条件に0
         this->regs.set_hf(true);            // Hフラグ、無条件に1
         this->fetch(bus);
@@ -382,11 +386,11 @@ void Cpu::jr_c(Peripherals &bus, Cond c){
         case 0:
             if(this->read8(bus, this->imm8, _val8)) {
                 if(this->cond(bus, c)){
-                    this->regs.pc += (int8_t)_val8;
+                    this->regs.pc += (uint16_t)((int8_t)_val8);
                     _step = 1;                      // ジャンプの場合はサイクル数+1
                 }
                 else _step = 2;
-                goto RE_ACTION;
+                //goto RE_ACTION;
             }
             break;
         case 1:

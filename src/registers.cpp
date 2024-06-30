@@ -18,46 +18,46 @@ Registers::Registers(){
 
 // AFの組み合わせのレジスタ、Fが下位ビット
 uint16_t Registers::af(){
-    return uint16_t(this->a << 8 | this->f);
+    return uint16_t(this->a << 8 | (uint16_t)this->f);
 }
 
 // BCの組み合わせのレジスタ、Cが下位ビット
 uint16_t Registers::bc(){
-    return uint16_t(this->b << 8 | this->c);
+    return uint16_t(this->b << 8 | (uint16_t)this->c);
 }
 
  // DEの組み合わせのレジスタ、Eが下位ビット
 uint16_t Registers::de(){
-    return uint16_t(this->d << 8 | this->e);
+    return uint16_t(this->d << 8 | (uint16_t)this->e);
 }
 
 // HLの組み合わせのレジスタ、Lが下位ビット
 uint16_t Registers::hl(){
-    return uint16_t(this->h << 8 | this->l);
+    return uint16_t(this->h << 8 | (uint16_t)this->l);
 }
 
 // AFへの書き込み
 void Registers::write_af(uint16_t val){
-    this->a = val >> 8;
+    this->a = (uint8_t)(val >> 8);
     this->f = val & 0xF0;   // Fの下位4bitは未使用で常に0らしい
 }
 
 // BCへの書き込み
 void Registers::write_bc(uint16_t val){
-    this->b = val >> 8;
-    this->c = val;
+    this->b = (uint8_t)(val >> 8);
+    this->c = (uint8_t)val;
 }
 
 // DEへの書き込み
 void Registers::write_de(uint16_t val){
-    this->d = val >> 8;
-    this->e = val;
+    this->d = (uint8_t)(val >> 8);
+    this->e = (uint8_t)val;
 }
 
 // HLへの書き込み
 void Registers::write_hl(uint16_t val){
-    this->h = val >> 8;
-    this->l = val;
+    this->h = (uint8_t)(val >> 8);
+    this->l = (uint8_t)val;
 }
 
 // F（フラグレジスタ）を取得する

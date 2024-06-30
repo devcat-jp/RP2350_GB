@@ -77,12 +77,13 @@ bool Cpu::read8(Peripherals &bus, Imm8 src, uint8_t &val){
 // サイクル2消費
 bool Cpu::read16(Peripherals &bus, Imm16 src, uint16_t &val){
     static uint8_t _step = 0;
-    uint8_t _tmp = 0;
+    static uint8_t _tmp = 0;
 
     RE_ACTION:
     switch(_step){
         case 0:
             if(this->read8(bus, this->imm8, _tmp)){
+                val = 0;
                 val |= _tmp;
                 _step = 1;
                 goto RE_ACTION;
@@ -181,70 +182,68 @@ bool Cpu::write8(Peripherals &bus, Indirect dst, uint8_t val){
 // Dだと3サイクル、DEFは2サイクル
 bool Cpu::read8(Peripherals &bus, Direct8 src, uint8_t &val){
     static uint8_t _step = 0;
+    static uint8_t _val8 = 0;
+    static uint16_t _val16 = 0;
+    uint8_t _tmp = 0;
 
     switch(_step){
         case 0:
-            if(src == Direct8::DFF) _step = 2;          // DEFの場合はメモリアクセスが1回少ない
-            else _step = 1;
+            if(this->read8(bus, this->imm8, _val8)){
+                _step = 1;
+                return false;
+            }
             return false;
         case 1:
-            _step = 2;
+            if(src == Direct8::DFF) {
+                _val16 = 0xFF00 | _val8;
+                _step = 2;                              // DEFの場合はメモリアクセスが1回少ない
+                return false;
+            }
+            if(this->read8(bus, this->imm8, _tmp)){
+                _val16 = _tmp << 8 | _val8;
+                _step = 2;
+                return false;
+            }
             return false;
         case 2:
-            _step = 3;
-            return false;
-        case 3:
-            // 16bitの値アドレス作成、DEFの場合は上位8bitが0xFF
-            uint8_t _tmp = 0;
-            uint16_t _addr = 0;
-            this->read8(bus, this->imm8, _tmp);
-            this->read8(bus, this->imm8, _tmp); _addr |= _tmp;
-            if(src == Direct8::DFF){
-                _addr |= 0xFF00;
-            } else {
-                this->read8(bus, this->imm8, _tmp);
-                this->read8(bus, this->imm8, _tmp); _addr |= _tmp << 8;
-            }
-            // 作成したアドレスの値を読み取る
-            val = bus.read(_addr);
-
+            val = bus.read(_val16);                      // 作成したアドレスの値を読む
             _step = 0;
-            return true;            
+            return true;
     };
+
     return false;
 }
 
+
 bool Cpu::write8(Peripherals &bus, Direct8 dst, uint8_t val){
     static uint8_t _step = 0;
+    static uint8_t _val8 = 0;
+    static uint16_t _val16 = 0;
+    uint8_t _tmp = 0;
 
     switch(_step){
         case 0:
-            if(dst == Direct8::DFF) _step = 2;          // DEFの場合はメモリアクセスが1回少ない
-            else _step = 1;
+            if(this->read8(bus, this->imm8, _val8)){
+                _step = 1;
+                return false;
+            }
             return false;
         case 1:
-            _step = 2;
+            if(dst == Direct8::DFF) {
+                _val16 = 0xFF00 | _val8;
+                _step = 2;                              // DEFの場合はメモリアクセスが1回少ない
+                return false;
+            }
+            if(this->read8(bus, this->imm8, _tmp)){
+                _val16 = _tmp << 8 | _val8;
+                _step = 2;
+                return false;
+            }
             return false;
         case 2:
-            _step = 3;
-            return false;
-        case 3:
-            // 16bitの値アドレス作成、DEFの場合は上位8bitが0xFF
-            uint8_t _tmp = 0;
-            uint16_t _addr = 0;
-            this->read8(bus, this->imm8, _tmp);
-            this->read8(bus, this->imm8, _tmp); _addr |= _tmp;
-            if(dst == Direct8::DFF){
-                _addr |= 0xFF00;
-            } else {
-                this->read8(bus, this->imm8, _tmp);
-                this->read8(bus, this->imm8, _tmp); _addr |= _tmp << 8;
-            }
-            // 作成したアドレスの値書く
-            bus.write(_addr, val);
-
+            bus.write(_val16, val);                      // 作成したアドレスの値書く
             _step = 0;
-            return true;            
+            return true;
     };
     
     return false;

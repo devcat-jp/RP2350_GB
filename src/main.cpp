@@ -19,18 +19,19 @@ Peripherals mmio;
 Cpu cpu;
 
 // debug
-bool isBOOTSEL = false;
+uint8_t isBOOTSEL = 0;
 
 char _buf[20];
 void dispFunc(){
-    Serial.begin(9600);
-
     // 描画指示
     gfx.swap();
     // 全画面クリア
     gfx.clear(gfx.BLACK);
 
-    if(!isBOOTSEL){
+    // 描画
+    mmio.ppu.render_bg(WIDTH, HEIGHT, gfx.getWriteBuffer()); 
+
+    if(isBOOTSEL == 0){
       snprintf(_buf, 8, "%X", cpu.regs.pc);
       gfx.writeFont8(0, 0, "PC:");
       gfx.writeFont8(4, 0, _buf);
@@ -67,14 +68,14 @@ void dispFunc(){
       snprintf(_buf, 16, "%d", cpu.cycle);
       gfx.writeFont8(0, 5, "CY:");
       gfx.writeFont8(4, 5, _buf);
-      snprintf(_buf, 16, "%X", cpu.regs.sp);
-      gfx.writeFont8(10, 5, "SP:");
-      gfx.writeFont8(13, 5, _buf);
+      //snprintf(_buf, 16, "%X", cpu.regs.sp);
+      //gfx.writeFont8(10, 5, "SP:");
+      //gfx.writeFont8(13, 5, _buf);
       //
-      snprintf(_buf, 16, "%X", cpu.dVal);
+      snprintf(_buf, 16, "%X", mmio.ppu.dVal);
       gfx.writeFont8(0, 7, "DE:");
       gfx.writeFont8(4, 7, _buf);
-    } else {
+    } else if(isBOOTSEL == 1) {
       // hram表示
       uint8_t _cnt = 0;
       for(int s = 0; s < 16; s++){
@@ -84,12 +85,67 @@ void dispFunc(){
           _cnt++;
         }
       }
+    } else if(isBOOTSEL == 2){
+      // vram表示
+      
+      uint16_t color = 0;
+      for(int r = 0; r < HEIGHT; r++){
+        for(int c = 0; c < WIDTH; c++){
+          uint16_t tile_idx = mmio.ppu.get_tile_idx_from_tile_map(0, r >> 3, c >> 3);
+          uint8_t pixel = mmio.ppu.get_pixel_from_tile(tile_idx, r & 7, c & 7);
+          switch (0xFC >> (pixel << 1) & 0b11)
+          {
+              case 0b00: color = 0xF800; break;
+              case 0b01: color = 0x001F; break;
+              case 0b10: color = 0x07E0; break;
+              default: color = 0x0000; break;
+          }
+          uint16_t *p = gfx.getWriteBuffer();
+          p[(WIDTH * r) + c] = color;
+
+        }
+      }
+      
+      /*
+      uint16_t _cnt = 0;
+      for(int s = 0; s < 25; s++){
+        for(int i = 0; i < 15; i++){
+          snprintf(_buf, 16, "%X", mmio.ppu.read(0x8000 + 1118 + _cnt));
+          gfx.writeFont8(i * 2, s, _buf);
+          _cnt++;
+        }
+      }
+      */
+      
     }
 }
 
 void setup() {
-  Serial.begin(9600); 
+  //Serial.begin(9600);
 
+  // LED点灯
+  pinMode(25, OUTPUT);
+  digitalWrite(25, HIGH);
+}
+
+
+bool my_debug = false;
+unsigned long ts = 0, te = 0;
+void loop() {
+  //ts = micros();
+  cpu.emulate_cycle(mmio);
+
+  //te = micros();
+  //unsigned long _time = te - ts;
+  //Serial.println(_time);
+
+}
+
+
+
+
+void setup1(){
+   
   // LCD初期化
   gfx.initILI9341(
     TFT_CLK,
@@ -108,31 +164,20 @@ void setup() {
   gfx.initDoubleBuffer();
 
   // DMAによる画像メモリ転送を有効化
-  //gfx.initDMA();
-  gfx.initDMA(dispFunc);
-
-  // LED点灯
-  pinMode(25, OUTPUT);
-  digitalWrite(25, HIGH);
+  gfx.initDMA();
+  //gfx.initDMA(dispFunc);
 }
 
-
-
-bool my_debug = false;
-void loop() {
-
-
-  cpu.emulate_cycle(mmio);
-
-  //if(cpu.ctx.opecode == 0xc9) my_debug = true;
-  //if(my_debug) delay(2000);
-
-
+void loop1(){
+  
   if(BOOTSEL){
     delay(500);
-    if(isBOOTSEL) isBOOTSEL = false;
-    else isBOOTSEL = true;
+    isBOOTSEL += 1;
+    if(isBOOTSEL > 3) isBOOTSEL = 0;
   }
+  
 
-
+  if(gfx.isCompletedTransfer()){
+    dispFunc();
+  }
 }

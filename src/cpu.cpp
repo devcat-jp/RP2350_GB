@@ -2,15 +2,28 @@
 #include "peripherals.hpp"
 #include "registers.hpp"
 #include "cpu.hpp"
+//#include "ope.hpp"
 
 
 Cpu::Cpu(){
     this->cycle = 0;
 }
 
+void Cpu::emulate_cycle(Peripherals &bus){
+    // 16bit命令
+    if (this->ctx.cb) {
+        this->cb_decode(bus);
+        return;
+    }
+    // 8bit命令
+    this->decode(bus);
+    
+}
+
+
 // 0xCBの場合は16bit命令
 void Cpu::cb_prefixed(Peripherals &bus) {
-    uint8_t _val = 0;
+    static uint8_t _val = 0;
     // プログラムカウンタの値を読む
     if (this->read8(bus, this->imm8, _val)) {
         this->ctx.opecode = _val;
@@ -25,7 +38,12 @@ void Cpu::fetch(Peripherals &bus){
     this->regs.pc += 1;
     this->ctx.cb = false;
 
-    this->cycle = 0;
+    //if(this->ctx.opecode != pgm_read_byte(&(OpeData[this->cycle]))){
+    //    delay(10000);
+    //}
+    this->cycle += 1;
+
+    //delay(1000);
 }
 
 
@@ -43,6 +61,7 @@ void Cpu::decode(Peripherals &bus){
         case 0x47: this->ld(bus, Reg8::B, Reg8::A); break;              // 1サイクル
         case 0x79: this->ld(bus, Reg8::A, Reg8::C); break;              // 1サイクル
         case 0x7B: this->ld(bus, Reg8::A, Reg8::E); break;
+        case 0x7A: this->ld(bus, Reg8::A, Reg8::D); break;
         case 0x57: this->ld(bus, Reg8::D, Reg8::A); break;
         case 0x22: this->ld(bus, Indirect::HLI, Reg8::A); break;        // 2サイクル
         case 0x32: this->ld(bus, Indirect::HLD, Reg8::A); break;
@@ -56,6 +75,7 @@ void Cpu::decode(Peripherals &bus){
         case 0x3D: this->dec(bus, Reg8::A); break;                      // 1サイクル
         case 0x05: this->dec(bus, Reg8::B); break;
         case 0x0D: this->dec(bus, Reg8::C); break;
+        case 0x15: this->dec(bus, Reg8::D); break;
         
         case 0x23: this->inc16(bus, Reg16::HL); break;
         case 0x13: this->inc16(bus, Reg16::DE); break;
@@ -64,14 +84,14 @@ void Cpu::decode(Peripherals &bus){
         case 0xF5: this->push(bus, Reg16::AF); break;                   // 4サイクル
         
         case 0xF1: this->pop(bus, Reg16::AF); break;                    // 3サイクル
-        //case 0xC1: this->pop(bus, Reg16::BC); break;
+        case 0xC1: this->pop(bus, Reg16::BC); break;
 
         case 0x18: this->jr(bus); break;
         case 0x28: this->jr_c(bus, Cond::Z); break;                     // 2-3サイクル
         case 0x20: this->jr_c(bus, Cond::NZ); break;                    // 2-3サイクル
         case 0xCD: this->call(bus); break;                              // 
         case 0xC9: this->ret(bus); break;
-        case 0xCB: this->cb_prefixed(bus);
+        case 0xCB: this->cb_prefixed(bus); break;
 
         case 0xFE: this->cp(bus, this->imm8); break;
 
@@ -88,16 +108,5 @@ void Cpu::cb_decode(Peripherals &bus){
 
 
 
-void Cpu::emulate_cycle(Peripherals &bus){
-    // 16bit命令
-    if (this->ctx.cb) {
-        this->cb_decode(bus);
-        this->cycle += 1;
-        return;
-    }
-    // 8bit命令
-    this->decode(bus);
-    this->cycle += 1;
-}
 
 
