@@ -77,7 +77,7 @@ bool Cpu::read8(Peripherals &bus, Imm8 src, uint8_t &val){
 // サイクル2消費
 bool Cpu::read16(Peripherals &bus, Imm16 src, uint16_t &val){
     static uint8_t _step = 0;
-    static uint8_t _tmp = 0;
+    uint8_t _tmp = 0;
 
     RE_ACTION:
     switch(_step){

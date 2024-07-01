@@ -347,6 +347,27 @@ bool Cpu::call(Peripherals &bus){
 }
 
 
+// JP : PCに値を格納する = ジャンプする
+void Cpu::jp(Peripherals &bus){
+    static uint8_t _step = 0;
+    static uint16_t _val16 = 0;
+
+    switch(_step){
+        case 0:
+            if(this->read16(bus, this->imm16, _val16)){
+                this->regs.pc = _val16;
+                _step = 1;
+                break;
+            }
+            break;
+        case 1:
+            _step = 0;
+            this->fetch(bus);
+            break;
+    };
+}
+
+
 // JR : プログラムカウンタに値を加算する
 void Cpu::jr(Peripherals &bus){
     static uint8_t _step = 0;

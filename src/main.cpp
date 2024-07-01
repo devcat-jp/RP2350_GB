@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <hardware/structs/systick.h>
 #include <RP2040_PIO_GFX.h>
 #include "peripherals.hpp"
 #include "cpu.hpp"
@@ -17,6 +18,13 @@
 RP2040_PIO_GFX::Gfx gfx;
 Peripherals mmio;
 Cpu cpu;
+
+// 時刻取得関数
+inline uint32_t get_cvr()
+{
+  return systick_hw->cvr;
+}
+
 
 // debug
 uint8_t isBOOTSEL = 0;
@@ -72,7 +80,7 @@ void dispFunc(){
       //gfx.writeFont8(10, 5, "SP:");
       //gfx.writeFont8(13, 5, _buf);
       //
-      snprintf(_buf, 16, "%X", mmio.ppu.dVal);
+      snprintf(_buf, 16, "%d", mmio.ppu.dVal);
       gfx.writeFont8(0, 7, "DE:");
       gfx.writeFont8(4, 7, _buf);
     } else if(isBOOTSEL == 1) {
@@ -95,9 +103,9 @@ void dispFunc(){
           uint8_t pixel = mmio.ppu.get_pixel_from_tile(tile_idx, r & 7, c & 7);
           switch (0xFC >> (pixel << 1) & 0b11)
           {
-              case 0b00: color = 0xF800; break;
-              case 0b01: color = 0x001F; break;
-              case 0b10: color = 0x07E0; break;
+              case 0b00: color = 0xFFFF; break;
+              case 0b01: color = 0xAD55; break;
+              case 0b10: color = 0x52AA; break;
               default: color = 0x0000; break;
           }
           uint16_t *p = gfx.getWriteBuffer();
@@ -132,13 +140,15 @@ void setup() {
 bool my_debug = false;
 unsigned long ts = 0, te = 0;
 void loop() {
-  //ts = micros();
-  cpu.emulate_cycle(mmio);
+  for(;;){
+    ts = get_cvr();
+    cpu.emulate_cycle(mmio);
 
-  //te = micros();
-  //unsigned long _time = te - ts;
-  //Serial.println(_time);
-
+    te = get_cvr();
+    mmio.ppu.dVal = ts - te;
+    //unsigned long _time = te - ts;
+    //Serial.println(_time);
+  }
 }
 
 
@@ -169,15 +179,17 @@ void setup1(){
 }
 
 void loop1(){
-  
+  /*
   if(BOOTSEL){
     delay(500);
     isBOOTSEL += 1;
     if(isBOOTSEL > 3) isBOOTSEL = 0;
   }
+  */
   
-
+  
   if(gfx.isCompletedTransfer()){
     dispFunc();
   }
+  
 }
