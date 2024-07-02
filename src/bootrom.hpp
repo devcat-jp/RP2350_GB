@@ -44,10 +44,19 @@ class BootRom{
         };
         bool active;
     public:
-        BootRom();
-        bool isActive();
-        uint8_t read(uint16_t addr);
-        void write(uint16_t addr, uint8_t val);
+        BootRom(){
+            this->active = true;
+        }
+        inline bool isActive() { 
+            return this->active;
+        }
+        inline uint8_t read(uint16_t addr){
+            return pgm_read_byte(&rom[addr]);
+        }
+        inline void write(uint16_t addr, uint8_t val){
+            if (val != 0) this->active = false;
+        }
+
 };
 
 #endif
