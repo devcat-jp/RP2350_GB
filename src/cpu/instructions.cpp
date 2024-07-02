@@ -30,6 +30,8 @@ template<typename T, typename U> void Cpu::ld(Peripherals &bus, T dst, U src){
             break;
     };
 }
+
+/*
 template<typename T, typename U> void Cpu::ld16(Peripherals &bus, T dst, U src){
     static uint8_t _step = 0;
     static uint16_t _val16 = 0;
@@ -48,6 +50,7 @@ template<typename T, typename U> void Cpu::ld16(Peripherals &bus, T dst, U src){
             break;
     };
 }
+*/
 
 // CP s : Aレジスタからsの値を引き、レジスタ設定を行う
 template<typename T> void Cpu::cp(Peripherals &bus, T src){

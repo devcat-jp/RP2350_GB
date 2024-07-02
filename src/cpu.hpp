@@ -38,7 +38,7 @@ class Cpu{
         }
 
         // 0xCBの場合は16bit命令
-        void cb_prefixed(Peripherals &bus) {
+        inline void cb_prefixed(Peripherals &bus) {
             static uint8_t _val = 0;
             // プログラムカウンタの値を読む
             if (this->read8(bus, this->imm8, _val)) {
@@ -53,11 +53,49 @@ class Cpu{
         bool read8(Peripherals &bus, Indirect src, uint8_t &val);
         bool read8(Peripherals &bus, Direct8 src, uint8_t &val);
         bool read16(Peripherals &bus, Reg16 src, uint16_t &val);
-        bool read16(Peripherals &bus, Imm16 src, uint16_t &val);
+        
+
+
+        inline bool read16(Peripherals &bus, Imm16 src, uint16_t &val){
+            static uint8_t _step = 0;
+            uint8_t _tmp;
+
+            switch(_step){
+                case 0:
+                    val = bus.read(this->regs.pc);
+                    this->regs.pc += 1;
+                    _step = 1;
+                    return false;
+                case 1:
+                    _tmp = bus.read(this->regs.pc);
+                    this->regs.pc += 1;
+                    val |= _tmp << 8;
+                    _step = 2;
+                    return false;
+                case 2:
+                    _step = 0;
+                    return true;
+            };
+            return false;
+        }
+
+
         bool write8(Peripherals &bus, Reg8 dst, uint8_t val);
         bool write8(Peripherals &bus, Indirect dst, uint8_t val);
         bool write8(Peripherals &bus, Direct8 dst, uint8_t val);
-        bool write16(Peripherals &bus, Reg16 dst, uint16_t val);
+        
+        // 16bitレジスタのW、サイクル消費はしない
+        inline bool write16(Peripherals &bus, Reg16 src, uint16_t val){
+            switch(src){
+                case Reg16::AF: this->regs.write_af(val); return true;
+                case Reg16::BC: this->regs.write_bc(val); return true;
+                case Reg16::DE: this->regs.write_de(val); return true;
+                case Reg16::HL: this->regs.write_hl(val); return true;
+                case Reg16::SP: this->regs.sp = val; return true;
+            };
+            return false;
+        }
+
         bool cond(Peripherals &bus, Cond cond);
         //
         void nop(Peripherals &bus);
@@ -71,7 +109,27 @@ class Cpu{
         bool call(Peripherals &bus);
         void ret(Peripherals &bus);
         template<typename T, typename U> void ld(Peripherals &bus, T dst, U src);
-        template<typename T, typename U> void ld16(Peripherals &bus, T dst, U src);
+        
+
+        // ld16 d s ： s の値を d  に格納する
+        template<typename T, typename U> void ld16(Peripherals &bus, T dst, U src){
+            static uint8_t _step = 0;
+            static uint16_t _val16 = 0;
+            switch(_step){
+                case 0:
+                    if(this->read16(bus, src, _val16)) {
+                        _step = 1;
+                    }
+                    break;
+                case 1:
+                    if(this->write16(bus, dst, _val16)){
+                        this->fetch(bus);
+                        _step = 0;
+                    }
+                    break;
+            };
+        }
+
         template<typename T> void chkbit(Peripherals &bus, uint8_t bitsize, T src);
         template<typename T> void cp(Peripherals &bus, T src);
         template<typename T> bool dec(Peripherals &bus, T src);
@@ -81,19 +139,25 @@ class Cpu{
         
 
     public:
+        // 変数
         Ctx ctx;
         Imm8 imm8;
         Imm16 imm16;
         Registers regs;
         uint32_t cycle;
         uint16_t dVal;
+        uint8_t step;
+        uint16_t val16;
+
 
         // コンストラクタ
         Cpu(){
             this->cycle = 0;
+            this->step = 0;
+            this->val16 = 0;
         }
         
-        // 
+        // CPUのエミュレート
         void emulate_cycle(Peripherals &bus){
             // 16bit命令
             if (this->ctx.cb) {
@@ -103,7 +167,9 @@ class Cpu{
 
             // 8bit命令
             switch(this->ctx.opecode){
+                
                 case 0x00: this->nop(bus); break;
+                ///*
                 case 0x1A: this->ld(bus, Reg8::A, Indirect::DE); break;         // 2サイクル
                 case 0x3E: this->ld(bus, Reg8::A, this->imm8); break;           // 2サイクル
                 case 0x06: this->ld(bus, Reg8::B, this->imm8); break;
@@ -141,6 +207,8 @@ class Cpu{
                 case 0xC9: this->ret(bus); break;
                 case 0xCB: this->cb_prefixed(bus); break;
                 case 0xFE: this->cp(bus, this->imm8); break;
+                //*/
+                //default: this->ld16(bus, Reg16::SP, this->imm16); break;      // 3サイクル
             }
         }
 };

@@ -148,6 +148,8 @@ void loop() {
     mmio.ppu.dVal = ts - te;
     //unsigned long _time = te - ts;
     //Serial.println(_time);
+
+    //delay(500);
   }
 }
 

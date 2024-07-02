@@ -43,16 +43,7 @@ bool Cpu::read16(Peripherals &bus, Reg16 src, uint16_t &val){
     };
     return false;
 }
-bool Cpu::write16(Peripherals &bus, Reg16 src, uint16_t val){
-    switch(src){
-        case Reg16::AF: this->regs.write_af(val); return true;
-        case Reg16::BC: this->regs.write_bc(val); return true;
-        case Reg16::DE: this->regs.write_de(val); return true;
-        case Reg16::HL: this->regs.write_hl(val); return true;
-        case Reg16::SP: this->regs.sp = val; return true;
-    };
-    return false;
-}
+
 
 // プログラムカウンタが指す場所から読み取られる8bitのRW
 // サイクル1消費
@@ -73,36 +64,35 @@ bool Cpu::read8(Peripherals &bus, Imm8 src, uint8_t &val){
     return false;
 }
 
+
+/*
 // プログラムカウンタが指す場所から読み取られる16bitのRW
 // サイクル2消費
 bool Cpu::read16(Peripherals &bus, Imm16 src, uint16_t &val){
     static uint8_t _step = 0;
-    uint8_t _tmp = 0;
+    uint8_t _tmp;
 
-    RE_ACTION:
+    
     switch(_step){
         case 0:
-            if(this->read8(bus, this->imm8, _tmp)){
-                val = 0;
-                val |= _tmp;
-                _step = 1;
-                goto RE_ACTION;
-            }
+            val = bus.read(this->regs.pc);
+            this->regs.pc += 1;
+            _step = 1;
             return false;
         case 1:
-            if(this->read8(bus, this->imm8, _tmp)){
-                val |= _tmp << 8;
-                _step = 2;
-                goto RE_ACTION;
-            }
+            _tmp = bus.read(this->regs.pc);
+            this->regs.pc += 1;
+            val |= _tmp << 8;
+            _step = 2;
             return false;
         case 2:
             _step = 0;
             return true;
     };
-
+    
     return false;
 }
+*/
 
 
 // 16bitレジスタ、もしくは2つの8bitレジスタからなる16bitが指す場所の8bitを読み取る
