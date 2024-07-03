@@ -5,10 +5,7 @@
 #include "cpu.hpp"
 
 
-// NOP命令、何もしない
-void Cpu::nop(Peripherals &bus){
-    this->fetch(bus);
-}
+
 
 
 // ld d s ： s の値を d  に格納する

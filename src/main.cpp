@@ -19,11 +19,6 @@ RP2040_PIO_GFX::Gfx gfx;
 Peripherals mmio;
 Cpu cpu;
 
-// 時刻取得関数
-inline uint32_t get_cvr()
-{
-  return systick_hw->cvr;
-}
 
 
 // debug
@@ -128,8 +123,26 @@ void dispFunc(){
     }
 }
 
+
+// 時刻取得関数
+inline uint32_t get_cvr(){return systick_hw->cvr;}
+
+// tick値の差分を計算
+__attribute__((noinline)) static uint32_t tick_diffs(uint32_t start_time, uint32_t end_time)
+{
+  if (start_time <= end_time) {
+    // 測定時間内にreload発生
+    start_time += systick_hw->cvr + 1;
+  }
+  return start_time - end_time;
+}
+
+
 void setup() {
   //Serial.begin(9600);
+
+  systick_hw->csr = 0x5;
+  systick_hw->rvr = 0x00FFFFFF;
 
   // LED点灯
   pinMode(25, OUTPUT);
@@ -137,19 +150,23 @@ void setup() {
 }
 
 
+
 bool my_debug = false;
-unsigned long ts = 0, te = 0;
+uint32_t ts = 0, te = 0;
 void loop() {
-  for(;;){
+  while(1){
     ts = get_cvr();
     cpu.emulate_cycle(mmio);
 
     te = get_cvr();
-    mmio.ppu.dVal = ts - te;
-    //unsigned long _time = te - ts;
-    //Serial.println(_time);
+    mmio.ppu.dVal = tick_diffs(ts, te);
+    //if(mmio.ppu.dVal > 250) {delay(1000);}
 
-    //delay(500);
+    //unsigned long _time = te - ts;
+    //String hoge = (String)mmio.ppu.dVal + " / " + (String)ts + " / " + (String)te;
+    //Serial.println(hoge);
+
+    //delay(1000);
   }
 }
 
@@ -188,10 +205,10 @@ void loop1(){
     if(isBOOTSEL > 3) isBOOTSEL = 0;
   }
   */
-  
-  
-  if(gfx.isCompletedTransfer()){
-    dispFunc();
+  while(1){ 
+    if(gfx.isCompletedTransfer()){
+      dispFunc();
+    }
   }
   
 }
