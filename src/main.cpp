@@ -155,18 +155,17 @@ bool my_debug = false;
 uint32_t ts = 0, te = 0;
 void loop() {
   while(1){
+    
     ts = get_cvr();
     cpu.emulate_cycle(mmio);
-
     te = get_cvr();
+
+    
+
     mmio.ppu.dVal = tick_diffs(ts, te);
-    //if(mmio.ppu.dVal > 250) {delay(1000);}
-
-    //unsigned long _time = te - ts;
-    //String hoge = (String)mmio.ppu.dVal + " / " + (String)ts + " / " + (String)te;
-    //Serial.println(hoge);
-
-    //delay(1000);
+    
+    
+    //delay(1);
   }
 }
 
