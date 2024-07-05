@@ -141,8 +141,8 @@ __attribute__((noinline)) static uint32_t tick_diffs(uint32_t start_time, uint32
 void setup() {
   //Serial.begin(9600);
 
-  systick_hw->csr = 0x5;
-  systick_hw->rvr = 0x00FFFFFF;
+  //systick_hw->csr = 0x5;
+  //systick_hw->rvr = 0x00FFFFFF;
 
   // LED点灯
   pinMode(25, OUTPUT);
@@ -159,13 +159,17 @@ void loop() {
     ts = get_cvr();
     cpu.emulate_cycle(mmio);
     te = get_cvr();
-
-    
-
     mmio.ppu.dVal = tick_diffs(ts, te);
+
+    // Wait処理
+    // 266Mhz : 1Hz = 0.00376us
+    // 1MS : 0.95us
+    // 0.95 / 0.00376 = 253サイクル
+    while(mmio.ppu.dVal < 253){
+      te = get_cvr();
+      mmio.ppu.dVal = tick_diffs(ts, te);
+    }
     
-    
-    //delay(1);
   }
 }
 
@@ -173,7 +177,6 @@ void loop() {
 
 
 void setup1(){
-   
   // LCD初期化
   gfx.initILI9341(
     TFT_CLK,
