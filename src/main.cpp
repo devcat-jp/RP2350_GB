@@ -3,6 +3,8 @@
 #include <RP2040_PIO_GFX.h>
 #include "peripherals.hpp"
 #include "cpu.hpp"
+#include "cartridge.hpp"
+#include "LittleFS.h"
 
 
 // ピンアサイン
@@ -17,6 +19,7 @@
 // クラス生成
 RP2040_PIO_GFX::Gfx gfx;
 Peripherals mmio;
+Cartridge cart;
 Cpu cpu;
 
 
@@ -27,9 +30,9 @@ uint8_t isBOOTSEL = 0;
 char _buf[20];
 void dispFunc(){
     // 描画指示
-    gfx.swap();
+    //gfx.swap();
     // 全画面クリア
-    gfx.clear(gfx.BLACK);
+    //gfx.clear(gfx.BLACK);
 
     // 描画
     mmio.ppu.render_bg(WIDTH, HEIGHT, gfx.getWriteBuffer()); 
@@ -75,6 +78,10 @@ void dispFunc(){
       //gfx.writeFont8(10, 5, "SP:");
       //gfx.writeFont8(13, 5, _buf);
       //
+      snprintf(_buf, 16, "%x", cart.header.cartridge_type);
+      gfx.writeFont8(0, 6, "TI:");
+      gfx.writeFont8(4, 6, _buf);
+      //
       snprintf(_buf, 16, "%d", mmio.ppu.dVal);
       gfx.writeFont8(0, 7, "DE:");
       gfx.writeFont8(4, 7, _buf);
@@ -119,8 +126,9 @@ void dispFunc(){
         }
       }
       */
-      
     }
+
+    gfx.updata();
 }
 
 
@@ -140,7 +148,6 @@ __attribute__((noinline)) static uint32_t tick_diffs(uint32_t start_time, uint32
 
 void setup() {
   //Serial.begin(9600);
-
   //systick_hw->csr = 0x5;
   //systick_hw->rvr = 0x00FFFFFF;
 
@@ -150,26 +157,42 @@ void setup() {
 }
 
 
-
+uint8_t rom[32768] = {0};
 bool my_debug = false;
 uint32_t ts = 0, te = 0;
 void loop() {
+  
+  // ROM load
+  uint32_t cnt = 0;
+  LittleFS.begin();
+  File file = LittleFS.open("/11.gb", "r");
+  while(file.available()){
+    rom[cnt] = file.read();
+    cnt++;
+  }
+  file.close();
+
+  // カートリッジ生成
+  cart.loadRom(rom);
+  mmio.setup(&cart);
+
+  // CPUループ
   while(1){
-    
     ts = get_cvr();
     cpu.emulate_cycle(mmio);
     te = get_cvr();
-    mmio.ppu.dVal = tick_diffs(ts, te);
+    //mmio.ppu.dVal = tick_diffs(ts, te);
+    mmio.ppu.dVal = rom[0x101];
+
+    // Stop
+    //if(cpu.regs.pc == 0x100) my_debug = true;
+    //if(my_debug) delay(3000);
 
     // Wait処理
     // 266Mhz : 1Hz = 0.00376us
     // 1MS : 0.95us
     // 0.95 / 0.00376 = 253サイクル
-    while(mmio.ppu.dVal < 253){
-      te = get_cvr();
-      mmio.ppu.dVal = tick_diffs(ts, te);
-    }
-    
+    //while(tick_diffs(ts, te) < 253){ te = get_cvr(); }
   }
 }
 
@@ -192,22 +215,26 @@ void setup1(){
 
   // ダブルバッファ用のメモリ生成
   // メモリサイズはLCD初期化の際の画面サイズと同じ
-  gfx.initDoubleBuffer();
+  //gfx.initDoubleBuffer();
 
   // DMAによる画像メモリ転送を有効化
   gfx.initDMA();
   //gfx.initDMA(dispFunc);
+
+  // 全画面クリア
+  gfx.clear(gfx.BLACK);
 }
 
 void loop1(){
-  /*
-  if(BOOTSEL){
-    delay(500);
-    isBOOTSEL += 1;
-    if(isBOOTSEL > 3) isBOOTSEL = 0;
-  }
-  */
+    
   while(1){ 
+
+    if(BOOTSEL){
+      delay(500);
+      isBOOTSEL += 1;
+      if(isBOOTSEL > 3) isBOOTSEL = 0;
+    }
+
     if(gfx.isCompletedTransfer()){
       dispFunc();
     }
