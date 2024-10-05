@@ -3,6 +3,7 @@
 
 #include "peripherals.hpp"
 #include "registers.hpp"
+#include "interrupts.hpp"
 
 // enum
 enum class Reg8 {A, B, C, D, E, H, L};
@@ -707,6 +708,48 @@ class Cpu{
         }
 
 
+        //---------------------------------------------------------------------------------------------
+        // RETI
+        // RETに加え割り込みレジスタを有効にする
+        inline void reti(Peripherals &bus){
+            static uint8_t _step = 0;
+            static uint16_t _val16 = 0;
+
+            switch(_step){
+                case 0:
+                    if(this->pop16(bus, _val16)){
+                        this->regs.pc = _val16;
+                        _step = 1;
+                    }
+                    break;
+                case 1:
+                    _step = 0;
+                    this->interrupts.ime = true;
+                    this->fetch(bus);
+                    break;
+            };
+        }
+
+        //---------------------------------------------------------------------------------------------
+        // EI
+        // 割り込みレジスタを有効にする
+        inline void ei(Peripherals &bus){
+            this->fetch(bus);                   // fetchが先
+            this->interrupts.ime = true;
+        } 
+
+        //---------------------------------------------------------------------------------------------
+        // di
+        // 割り込みレジスタを有効にする
+        inline void di(Peripherals &bus){
+            this->interrupts.ime = true;
+            this->fetch(bus);
+        } 
+
+
+
+
+
 
 
 
@@ -719,6 +762,7 @@ class Cpu{
         Imm8 imm8;
         Imm16 imm16;
         Registers regs;
+        Interrupts interrupts;
         uint32_t cycle;
         uint16_t dVal;
         uint8_t step;
@@ -737,6 +781,7 @@ class Cpu{
             switch(this->ctx.opecode){
                 case 0x10: this->rl(bus, Reg8::B); break;                       // 2サイクル
                 case 0x11: this->rl(bus, Reg8::C); break;                       // 2サイクル
+                case 0x12: this->rl(bus, Reg8::D); break;
                 case 0x6C: this->chkbit(bus, 5, Reg8::H); break;                // 2サイクル
             }
         }
@@ -758,15 +803,20 @@ class Cpu{
                 case 0x06: this->ld(bus, Reg8::B, this->imm8); break;
                 case 0x0E: this->ld(bus, Reg8::C, this->imm8); break;           // 2サイクル
                 case 0x2E: this->ld(bus, Reg8::L, this->imm8); break;
+                
+                case 0x78: this->ld(bus, Reg8::A, Reg8::B); break;
                 case 0x47: this->ld(bus, Reg8::B, Reg8::A); break;              // 1サイクル
                 case 0x79: this->ld(bus, Reg8::A, Reg8::C); break;              // 1サイクル
                 case 0x7B: this->ld(bus, Reg8::A, Reg8::E); break;
                 case 0x7A: this->ld(bus, Reg8::A, Reg8::D); break;
                 case 0x57: this->ld(bus, Reg8::D, Reg8::A); break;
+                case 0x12: this->ld(bus, Indirect::DE, Reg8::A); break;
                 case 0x22: this->ld(bus, Indirect::HLI, Reg8::A); break;        // 2サイクル
+                case 0x2A: this->ld(bus, Reg8::A, Indirect::HLI); break;
                 case 0x32: this->ld(bus, Indirect::HLD, Reg8::A); break;
                 case 0xEA: this->ld(bus, Direct8::D, Reg8::A); break;
                 case 0xE0: this->ld(bus, Direct8::DFF, Reg8::A); break;         // 2サイクル
+                
                 case 0x01: this->ld16(bus, Reg16::BC, this->imm16); break;
                 case 0x11: this->ld16(bus, Reg16::DE, this->imm16); break;
                 case 0x21: this->ld16(bus, Reg16::HL, this->imm16); break;      // 3サイクル
@@ -775,6 +825,8 @@ class Cpu{
                 case 0x05: this->dec(bus, Reg8::B); break;
                 case 0x0D: this->dec(bus, Reg8::C); break;
                 case 0x15: this->dec(bus, Reg8::D); break;
+                case 0x1C: this->inc(bus, Reg8::E); break;
+                case 0x14: this->inc(bus, Reg8::D); break;
                 case 0x23: this->inc16(bus, Reg16::HL); break;
                 case 0x13: this->inc16(bus, Reg16::DE); break;
                 case 0xF5: this->push(bus, Reg16::AF); break;                   // 4サイクル
