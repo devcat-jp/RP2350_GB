@@ -4,14 +4,17 @@
 // 周辺機器管理
 #include "bootrom.hpp"
 #include "hram.hpp"
+#include "wram.hpp"
 #include "ppu.hpp"
 #include "cartridge.hpp"
+#include "interrupts.hpp"
 
 class Peripherals {
     private:
         BootRom bootrom;
         Cartridge *p_cart;
     public:
+        WRam wram;
         HRam hram;
         Ppu ppu;
 
@@ -31,6 +34,7 @@ class Peripherals {
                 }
             }
             else if (0x0000 <= addr && addr <= 0x7FFF) return this->p_cart->read(addr);     // cart
+            else if (0xC000 <= addr && addr <= 0xFDFF) return this->wram.read(addr);        // wram
             else if (0xA000 <= addr && addr <= 0xBFFF) return this->p_cart->read(addr);     // cart
             else if (0x8000 <= addr && addr <= 0x9FFF) return this->ppu.read(addr);         // ppu
             else if (0xFE00 <= addr && addr <= 0xFE9F) return this->ppu.read(addr);         // ppu
@@ -46,6 +50,7 @@ class Peripherals {
                 this->bootrom.write(addr, val);
             }
             else if (0x8000 <= addr && addr <= 0x9FFF) this->ppu.write(addr, val);          // ppu
+            else if (0xC000 <= addr && addr <= 0xFDFF) this->wram.write(addr, val);         // wram
             else if (0xFE00 <= addr && addr <= 0xFE9F) this->ppu.write(addr, val);          // ppu
             else if (0xFF40 <= addr && addr <= 0xFF4B) this->ppu.write(addr, val);          // ppu
             else if (0xFF80 <= addr && addr <= 0xFFFE) this->hram.write(addr, val);         // hram
