@@ -9,6 +9,7 @@
         "vector": "cpp",
         "system_error": "cpp",
         "functional": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "cstdint": "cpp"
     }
 }
