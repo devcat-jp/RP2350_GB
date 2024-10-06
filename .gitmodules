@@ -1,0 +1,3 @@
+[submodule "lib/RP2040_PIO_GFX"]
+	path = lib/RP2040_PIO_GFX
+	url = https://github.com/devcat-jp/RP2040_PIO_GFX.git
