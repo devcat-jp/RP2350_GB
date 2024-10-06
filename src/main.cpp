@@ -176,16 +176,18 @@ void loop() {
   cart.loadRom(rom);
   mmio.setup(&cart);
 
+  //
+  //cpu.regs.pc = 0x100;
+
   // CPUループ
   while(1){
     ts = get_cvr();
     cpu.emulate_cycle(mmio);
     te = get_cvr();
-    //mmio.ppu.dVal = tick_diffs(ts, te);
-    mmio.ppu.dVal = rom[0x101];
+    mmio.ppu.dVal = tick_diffs(ts, te);
 
     // Stop
-    //if(cpu.regs.pc == 0x100) my_debug = true;
+    //if(cpu.ctx.opecode == 0x78) my_debug = true;
     //if(my_debug) delay(3000);
 
     // Wait処理
