@@ -18,6 +18,7 @@ enum class Imm16{};
 struct Ctx {
     uint8_t opecode;
     bool cb;
+    bool int_flag;
 };
 
 
@@ -26,7 +27,13 @@ class Cpu{
         // フェッチ
         inline void fetch(Peripherals &bus){
             this->ctx.opecode = bus.read(this->interrupts, this->regs.pc);
-            this->regs.pc += 1;
+            // 割り込み確認
+            if(this->interrupts.ime && this->interrupts.get_interrupts() > 0){
+                this->ctx.int_flag = true;
+            } else {
+                this->regs.pc += 1;
+                this->ctx.int_flag = false;;
+            }
             this->ctx.cb = false;
         }
 
@@ -746,6 +753,27 @@ class Cpu{
             this->fetch(bus);
         } 
 
+        //---------------------------------------------------------------------------------------------
+        // call_isr
+        // 割り込み処理
+        inline void call_isr(Peripherals &bus){
+            static uint8_t _step = 0;
+
+            switch(_step){
+                case 0:
+                    if(this->pop16(bus, this->regs.pc)){
+                        // 割り込み処理
+                        _step = 1;
+                    }
+                    break;
+                case 1:
+                    _step = 0;
+                    this->interrupts.ime = false;
+                    this->fetch(bus);
+                    break;
+            };
+        }
+
 
 
 
@@ -788,66 +816,71 @@ class Cpu{
         
         // CPUのエミュレート
         inline void emulate_cycle(Peripherals &bus){
-            // 16bit命令
-            if (this->ctx.cb) {
-                this->cb_decode(bus);
-                return;
-            }
+            // 割り込み処理
+            if(this->ctx.int_flag){
+                this->call_isr(bus);
 
-            // 8bit命令
-            switch(this->ctx.opecode){
-                
-                case 0x00: this->nop(bus); break;
-                case 0x1A: this->ld(bus, Reg8::A, Indirect::DE); break;         // 2サイクル
-                case 0x3E: this->ld(bus, Reg8::A, this->imm8); break;           // 2サイクル
-                case 0x06: this->ld(bus, Reg8::B, this->imm8); break;
-                case 0x0E: this->ld(bus, Reg8::C, this->imm8); break;           // 2サイクル
-                case 0x2E: this->ld(bus, Reg8::L, this->imm8); break;
-                
-                
-                case 0x78: this->ld(bus, Reg8::A, Reg8::B); break;
-                case 0x79: this->ld(bus, Reg8::A, Reg8::C); break;              // 1サイクル
-                case 0x7A: this->ld(bus, Reg8::A, Reg8::D); break;
-                case 0x7B: this->ld(bus, Reg8::A, Reg8::E); break;
-                case 0x7C: this->ld(bus, Reg8::A, Reg8::H); break;
-                case 0x7D: this->ld(bus, Reg8::A, Reg8::L); break;
-                
-                case 0x47: this->ld(bus, Reg8::B, Reg8::A); break;              // 1サイクル
+            } else {
+                // 16bit命令
+                if (this->ctx.cb) {
+                    this->cb_decode(bus);
+                    return;
+                }
 
-                case 0x57: this->ld(bus, Reg8::D, Reg8::A); break;
-                case 0x12: this->ld(bus, Indirect::DE, Reg8::A); break;
-                case 0x22: this->ld(bus, Indirect::HLI, Reg8::A); break;        // 2サイクル
-                case 0x2A: this->ld(bus, Reg8::A, Indirect::HLI); break;
-                case 0x32: this->ld(bus, Indirect::HLD, Reg8::A); break;
-                case 0xEA: this->ld(bus, Direct8::D, Reg8::A); break;
-                case 0xE0: this->ld(bus, Direct8::DFF, Reg8::A); break;         // 2サイクル
-                
-                case 0x01: this->ld16(bus, Reg16::BC, this->imm16); break;
-                case 0x11: this->ld16(bus, Reg16::DE, this->imm16); break;
-                case 0x21: this->ld16(bus, Reg16::HL, this->imm16); break;      // 3サイクル
-                case 0x31: this->ld16(bus, Reg16::SP, this->imm16); break;      // 3サイクル
-                case 0x3D: this->dec(bus, Reg8::A); break;                      // 1サイクル
-                case 0x05: this->dec(bus, Reg8::B); break;
-                case 0x0D: this->dec(bus, Reg8::C); break;
-                case 0x15: this->dec(bus, Reg8::D); break;
-                case 0x1C: this->inc(bus, Reg8::E); break;
-                case 0x14: this->inc(bus, Reg8::D); break;
-                case 0x23: this->inc16(bus, Reg16::HL); break;
-                case 0x13: this->inc16(bus, Reg16::DE); break;
-                case 0xF5: this->push(bus, Reg16::AF); break;                   // 4サイクル
-                case 0xC5: this->push(bus, Reg16::BC); break;
-                case 0xE5: this->push(bus, Reg16::HL); break;
-                case 0xF1: this->pop(bus, Reg16::AF); break;                    // 3サイクル
-                case 0xC1: this->pop(bus, Reg16::BC); break;
-                case 0xC3: this->jp(bus); break;
-                case 0x18: this->jr(bus); break;
-                case 0x28: this->jr_c(bus, Cond::Z); break;                     // 2-3サイクル
-                case 0x20: this->jr_c(bus, Cond::NZ); break;                    // 2-3サイクル
-                case 0xCD: this->call(bus); break;                              // 
-                case 0xC9: this->ret(bus); break;
-                case 0xCB: this->cb_prefixed(bus); break;
-                case 0xFE: this->cp(bus, this->imm8); break;
-                case 0xF3: this->di(bus); break;
+                // 8bit命令
+                switch(this->ctx.opecode){
+                    
+                    case 0x00: this->nop(bus); break;
+                    case 0x1A: this->ld(bus, Reg8::A, Indirect::DE); break;         // 2サイクル
+                    case 0x3E: this->ld(bus, Reg8::A, this->imm8); break;           // 2サイクル
+                    case 0x06: this->ld(bus, Reg8::B, this->imm8); break;
+                    case 0x0E: this->ld(bus, Reg8::C, this->imm8); break;           // 2サイクル
+                    case 0x2E: this->ld(bus, Reg8::L, this->imm8); break;
+                    
+                    case 0x78: this->ld(bus, Reg8::A, Reg8::B); break;
+                    case 0x79: this->ld(bus, Reg8::A, Reg8::C); break;              // 1サイクル
+                    case 0x7A: this->ld(bus, Reg8::A, Reg8::D); break;
+                    case 0x7B: this->ld(bus, Reg8::A, Reg8::E); break;
+                    case 0x7C: this->ld(bus, Reg8::A, Reg8::H); break;
+                    case 0x7D: this->ld(bus, Reg8::A, Reg8::L); break;
+                    
+                    case 0x47: this->ld(bus, Reg8::B, Reg8::A); break;              // 1サイクル
+
+                    case 0x57: this->ld(bus, Reg8::D, Reg8::A); break;
+                    case 0x12: this->ld(bus, Indirect::DE, Reg8::A); break;
+                    case 0x22: this->ld(bus, Indirect::HLI, Reg8::A); break;        // 2サイクル
+                    case 0x2A: this->ld(bus, Reg8::A, Indirect::HLI); break;
+                    case 0x32: this->ld(bus, Indirect::HLD, Reg8::A); break;
+                    case 0xEA: this->ld(bus, Direct8::D, Reg8::A); break;
+                    case 0xE0: this->ld(bus, Direct8::DFF, Reg8::A); break;         // 2サイクル
+                    
+                    case 0x01: this->ld16(bus, Reg16::BC, this->imm16); break;
+                    case 0x11: this->ld16(bus, Reg16::DE, this->imm16); break;
+                    case 0x21: this->ld16(bus, Reg16::HL, this->imm16); break;      // 3サイクル
+                    case 0x31: this->ld16(bus, Reg16::SP, this->imm16); break;      // 3サイクル
+                    case 0x3D: this->dec(bus, Reg8::A); break;                      // 1サイクル
+                    case 0x05: this->dec(bus, Reg8::B); break;
+                    case 0x0D: this->dec(bus, Reg8::C); break;
+                    case 0x15: this->dec(bus, Reg8::D); break;
+                    case 0x1C: this->inc(bus, Reg8::E); break;
+                    case 0x14: this->inc(bus, Reg8::D); break;
+                    case 0x23: this->inc16(bus, Reg16::HL); break;
+                    case 0x13: this->inc16(bus, Reg16::DE); break;
+                    case 0xF5: this->push(bus, Reg16::AF); break;                   // 4サイクル
+                    case 0xC5: this->push(bus, Reg16::BC); break;
+                    case 0xE5: this->push(bus, Reg16::HL); break;
+                    case 0xF1: this->pop(bus, Reg16::AF); break;                    // 3サイクル
+                    case 0xC1: this->pop(bus, Reg16::BC); break;
+                    case 0xC3: this->jp(bus); break;
+                    case 0x18: this->jr(bus); break;
+                    case 0x28: this->jr_c(bus, Cond::Z); break;                     // 2-3サイクル
+                    case 0x20: this->jr_c(bus, Cond::NZ); break;                    // 2-3サイクル
+                    case 0xCD: this->call(bus); break;                              // 
+                    case 0xC9: this->ret(bus); break;
+                    case 0xCB: this->cb_prefixed(bus); break;
+                    case 0xFE: this->cp(bus, this->imm8); break;
+                    case 0xF3: this->di(bus); break;
+                }
             }
         }
 };
