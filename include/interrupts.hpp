@@ -4,6 +4,7 @@
 
 
 // 割り込みで使用する定数
+// PPUなどは再現しないで大丈夫？
 const uint8_t TIMER = 1 << 2;
 const uint8_t JOYPAD = 1 << 4;
 

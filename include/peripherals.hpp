@@ -24,7 +24,7 @@ class Peripherals {
         }
 
         // MMIOのリード処理
-        inline uint8_t read(uint16_t addr){
+        inline uint8_t read(Interrupts interrupts, uint16_t addr){
             // bootrom
             if(0x0000 <= addr && addr <= 0x00FF) {
                 if(this->bootrom.isActive()){
@@ -40,11 +40,12 @@ class Peripherals {
             else if (0xFE00 <= addr && addr <= 0xFE9F) return this->ppu.read(addr);         // ppu
             else if (0xFF40 <= addr && addr <= 0xFF4B) return this->ppu.read(addr);         // ppu
             else if (0xFF80 <= addr && addr <= 0xFFFE) return this->hram.read(addr);        // hram
+            else if (0xFF0F == addr && addr == 0xFFFF) return interrupts.read(addr);        // interrupts
             else return 0xFF;
         }
 
         // MMIOのライト処理
-        inline void write(uint16_t addr, uint8_t val){
+        inline void write(Interrupts interrupts, uint16_t addr, uint8_t val){
             // bootrom
             if(0xFF50 == addr) {
                 this->bootrom.write(addr, val);
@@ -54,6 +55,7 @@ class Peripherals {
             else if (0xFE00 <= addr && addr <= 0xFE9F) this->ppu.write(addr, val);          // ppu
             else if (0xFF40 <= addr && addr <= 0xFF4B) this->ppu.write(addr, val);          // ppu
             else if (0xFF80 <= addr && addr <= 0xFFFE) this->hram.write(addr, val);         // hram
+            else if (0xFF0F == addr && addr == 0xFFFF) interrupts.write(addr, val);         // interrupts
         }
 
 };

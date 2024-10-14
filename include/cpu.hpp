@@ -25,7 +25,7 @@ class Cpu{
     private:
         // フェッチ
         inline void fetch(Peripherals &bus){
-            this->ctx.opecode = bus.read(this->regs.pc);
+            this->ctx.opecode = bus.read(this->interrupts, this->regs.pc);
             this->regs.pc += 1;
             this->ctx.cb = false;
         }
@@ -102,7 +102,7 @@ class Cpu{
                     _step = 1;
                     return false;
                 case 1:
-                    val = bus.read(this->regs.pc);
+                    val = bus.read(this->interrupts, this->regs.pc);
                     this->regs.pc += 1;
                     _step = 0;
                     return true;
@@ -116,12 +116,12 @@ class Cpu{
 
             switch(_step){
                 case 0:
-                    val = bus.read(this->regs.pc);
+                    val = bus.read(this->interrupts, this->regs.pc);
                     this->regs.pc += 1;
                     _step = 1;
                     return false;
                 case 1:
-                    _tmp = bus.read(this->regs.pc);
+                    _tmp = bus.read(this->interrupts, this->regs.pc);
                     this->regs.pc += 1;
                     val |= _tmp << 8;
                     _step = 2;
@@ -147,20 +147,20 @@ class Cpu{
                 case 1:
                     uint16_t addr = 0;
                     switch(src){
-                        case Indirect::BC: val = bus.read(this->regs.bc()); break;
-                        case Indirect::DE: val = bus.read(this->regs.de()); break;
-                        case Indirect::HL: val = bus.read(this->regs.hl()); break;
+                        case Indirect::BC: val = bus.read(this->interrupts, this->regs.bc()); break;
+                        case Indirect::DE: val = bus.read(this->interrupts, this->regs.de()); break;
+                        case Indirect::HL: val = bus.read(this->interrupts, this->regs.hl()); break;
                         case Indirect::HLD:
                             // HLの値を読んだ後にデクリメントする
                             addr = this->regs.hl();
-                            val = bus.read(addr);
+                            val = bus.read(this->interrupts, addr);
                             addr -= 1;
                             this->regs.write_hl(addr); 
                             break;
                         case Indirect::HLI:
                             // HLの値を読んだ後にインクリメントする
                             addr = this->regs.hl();
-                            val = bus.read(addr);
+                            val = bus.read(this->interrupts, addr);
                             addr += 1;
                             this->regs.write_hl(addr); 
                             break;
@@ -181,20 +181,20 @@ class Cpu{
                 case 1:
                     uint16_t addr = 0;
                     switch(dst){
-                        case Indirect::BC: bus.write(this->regs.bc(), val); break;
-                        case Indirect::DE: bus.write(this->regs.de(), val); break;
-                        case Indirect::HL: bus.write(this->regs.hl(), val); break;
+                        case Indirect::BC: bus.write(this->interrupts, this->regs.bc(), val); break;
+                        case Indirect::DE: bus.write(this->interrupts, this->regs.de(), val); break;
+                        case Indirect::HL: bus.write(this->interrupts, this->regs.hl(), val); break;
                         case Indirect::HLD:
                             // HLの値を書いた後にデクリメントする
                             addr = this->regs.hl();
-                            bus.write(addr, val);
+                            bus.write(this->interrupts, addr, val);
                             addr -= 1;
                             this->regs.write_hl(addr); 
                             break;
                         case Indirect::HLI:
                             // HLの値を書いた後にインクリメントする
                             addr = this->regs.hl();
-                            bus.write(addr, val);
+                            bus.write(this->interrupts, addr, val);
                             addr += 1;
                             this->regs.write_hl(addr); 
                             break;
@@ -235,7 +235,7 @@ class Cpu{
                     }
                     return false;
                 case 2:
-                    val = bus.read(_val16);                      // 作成したアドレスの値を読む
+                    val = bus.read(this->interrupts, _val16);                      // 作成したアドレスの値を読む
                     _step = 0;
                     return true;
             };
@@ -268,7 +268,7 @@ class Cpu{
                     }
                     return false;
                 case 2:
-                    bus.write(_val16, val);                      // 作成したアドレスの値書く
+                    bus.write(this->interrupts, _val16, val);                      // 作成したアドレスの値書く
                     _step = 0;
                     return true;
             };
@@ -489,13 +489,13 @@ class Cpu{
                 case 1:
                     // SPをデクリメントし、SPが指すアドレスに値を書き込む（H）
                     this->regs.sp -= 1;
-                    bus.write(this->regs.sp, (uint8_t)(val >> 8));
+                    bus.write(this->interrupts, this->regs.sp, (uint8_t)(val >> 8));
                     _step = 2;
                     return false;
                 case 2:
                     // 下位ビット
                     this->regs.sp -= 1;
-                    bus.write(this->regs.sp, (uint8_t)(val & 0xFF));
+                    bus.write(this->interrupts, this->regs.sp, (uint8_t)(val & 0xFF));
                     _step = 3;
                     return false;
                 case 3:
@@ -541,13 +541,13 @@ class Cpu{
             switch(_step){
                 case 0:
                     // 下位8bitの値取得し、SPをインクリメント
-                    _lo = bus.read(this->regs.sp);
+                    _lo = bus.read(this->interrupts, this->regs.sp);
                     this->regs.sp += 1;
                     _step = 1;
                     break;
                 case 1:
                     // 上位8bitの値取得し、SPをインクリメント
-                    _hi = bus.read(this->regs.sp);
+                    _hi = bus.read(this->interrupts, this->regs.sp);
                     this->regs.sp += 1;
                     // 結果代入
                     val = (uint16_t)(_hi << 8) | (uint16_t)_lo; 
@@ -804,11 +804,16 @@ class Cpu{
                 case 0x0E: this->ld(bus, Reg8::C, this->imm8); break;           // 2サイクル
                 case 0x2E: this->ld(bus, Reg8::L, this->imm8); break;
                 
+                
                 case 0x78: this->ld(bus, Reg8::A, Reg8::B); break;
-                case 0x47: this->ld(bus, Reg8::B, Reg8::A); break;              // 1サイクル
                 case 0x79: this->ld(bus, Reg8::A, Reg8::C); break;              // 1サイクル
-                case 0x7B: this->ld(bus, Reg8::A, Reg8::E); break;
                 case 0x7A: this->ld(bus, Reg8::A, Reg8::D); break;
+                case 0x7B: this->ld(bus, Reg8::A, Reg8::E); break;
+                case 0x7C: this->ld(bus, Reg8::A, Reg8::H); break;
+                case 0x7D: this->ld(bus, Reg8::A, Reg8::L); break;
+                
+                case 0x47: this->ld(bus, Reg8::B, Reg8::A); break;              // 1サイクル
+
                 case 0x57: this->ld(bus, Reg8::D, Reg8::A); break;
                 case 0x12: this->ld(bus, Indirect::DE, Reg8::A); break;
                 case 0x22: this->ld(bus, Indirect::HLI, Reg8::A); break;        // 2サイクル
@@ -842,6 +847,7 @@ class Cpu{
                 case 0xC9: this->ret(bus); break;
                 case 0xCB: this->cb_prefixed(bus); break;
                 case 0xFE: this->cp(bus, this->imm8); break;
+                case 0xF3: this->di(bus); break;
             }
         }
 };
